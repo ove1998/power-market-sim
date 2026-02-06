@@ -39,12 +39,6 @@ ENV/
 .env
 .env.local
 
-# Data files (zu groß für GitHub)
-*.parquet
-*.csv
-*.h5
-*.hdf5
-
 # Logs
 *.log
 logs/
@@ -56,11 +50,11 @@ Thumbs.db
 # Streamlit
 .streamlit/secrets.toml
 
-# Project specific
+# Project specific - nur raw und results ausschließen
 data/raw/*.csv
 data/raw/*.parquet
-data/processed/*.parquet
 data/results/
+# data/processed/ wird NICHT ausgeschlossen - benötigt für Streamlit!
 
 # Memory directory
 .claude/
