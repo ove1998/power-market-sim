@@ -1,0 +1,134 @@
+# Default Configuration for Power Market Simulation
+
+# Network Configuration
+network:
+  model_type: "copper_plate"  # copper_plate oder network (16-bus)
+  country: "DE"  # Deutschland
+  voltage_level: 380  # kV (relevant nur für network-Modell)
+
+# Simulation Time Range
+simulation:
+  # MVP: 3 Monate
+  start_date: "2024-01-01"
+  end_date: "2024-03-31"
+  frequency: "1h"  # Stündliche Auflösung
+
+  # Solver Configuration
+  solver: "highs"  # highs, gurobi, cplex, glpk
+  solver_options:
+    time_limit: 300  # seconds per scenario
+    mip_gap: 0.01
+    threads: 1  # Threads pro Worker
+
+  # Parallel Processing
+  parallel:
+    max_workers: 4  # Anzahl paralleler Prozesse
+    max_tasks_per_child: 10  # Worker neu starten nach N Tasks (Memory-Management)
+
+# Memory Management
+memory:
+  max_total_gb: 28  # Maximaler RAM für alle Worker
+  max_per_worker_gb: 7  # Maximaler RAM pro Worker
+  enable_monitoring: true
+
+# Generator Fleet (2025 SMARD Actual Capacities in GW)
+# Marginal costs include CO2 prices (~80 EUR/t CO2 in 2025)
+generators:
+  nuclear:
+    capacity_gw: 0.0  # Abgeschaltet seit April 2023
+    marginal_cost: 5.0  # EUR/MWh
+    p_nom_extendable: false
+
+  lignite:
+    capacity_gw: 15.2  # SMARD 2025: 15176 MW
+    marginal_cost: 95.0  # 15 fuel + 80 CO2 (1.0 t/MWh)
+    p_nom_extendable: false
+
+  hard_coal:
+    capacity_gw: 16.0  # SMARD 2025: 15951 MW
+    marginal_cost: 107.0  # 35 fuel + 72 CO2 (0.9 t/MWh)
+    p_nom_extendable: false
+
+  ccgt:  # Combined Cycle Gas Turbine
+    capacity_gw: 33.0  # SMARD 2025: 36682 MW Gas (90% CCGT)
+    marginal_cost: 92.0  # 60 fuel + 32 CO2 (0.4 t/MWh)
+    p_nom_extendable: false
+
+  ocgt:  # Open Cycle Gas Turbine
+    capacity_gw: 3.7  # SMARD 2025: 36682 MW Gas (10% OCGT)
+    marginal_cost: 140.0  # 100 fuel + 40 CO2 (0.5 t/MWh)
+    p_nom_extendable: false
+
+  wind_onshore:
+    capacity_gw: 63.4  # SMARD 2025: 63403 MW
+    marginal_cost: 0.0
+    p_nom_extendable: false
+
+  wind_offshore:
+    capacity_gw: 9.2  # SMARD 2025: 9215 MW
+    marginal_cost: 0.0
+    p_nom_extendable: false
+
+  solar:
+    capacity_gw: 87.0  # SMARD 2025: 86952 MW
+    marginal_cost: 0.0
+    p_nom_extendable: false
+
+  hydro_run_of_river:
+    capacity_gw: 5.4  # SMARD 2025: 5383 MW
+    marginal_cost: 0.0
+    p_nom_extendable: false
+
+  hydro_reservoir:
+    capacity_gw: 9.4  # SMARD 2025: 9384 MW Pumpspeicher
+    marginal_cost: 0.0
+    p_nom_extendable: false
+    energy_capacity_gwh: 40.0  # Speicherkapazität
+
+# Import/Export (vereinfacht)
+interconnectors:
+  import:
+    capacity_gw: 15.0
+    marginal_cost: 150.0  # EUR/MWh - aktiviert nur bei sehr hohen Preisen
+  export:
+    capacity_gw: 15.0
+    marginal_cost: -100.0  # EUR/MWh - NEGATIVE Grenzkosten! Aktiviert bei niedrigen/negativen Preisen
+
+# Demand Configuration
+demand:
+  source: "manual"  # manual, historical, upload
+  annual_demand_twh: 500.0  # Deutschland Gesamt
+  peak_load_gw: 80.0
+
+# Battery Storage (Default - wird durch Szenarien überschrieben)
+storage:
+  battery:
+    capacity_gwh: 0.0  # Wird per Szenario gesetzt
+    power_gw: 0.0  # Wird per Szenario gesetzt
+    efficiency: 0.90  # Round-trip efficiency
+    marginal_cost: 0.1  # EUR/MWh (geringe Kosten für Betrieb)
+
+# Data Storage Configuration
+data:
+  results_dir: "data/results"
+  processed_dir: "data/processed"
+  compression: true
+  format: "parquet"  # parquet oder pickle
+
+# Visualization
+visualization:
+  theme: "plotly_white"
+  color_palette:
+    - "#1f77b4"
+    - "#ff7f0e"
+    - "#2ca02c"
+    - "#d62728"
+    - "#9467bd"
+    - "#8c564b"
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/simulation.log"
+  console: true

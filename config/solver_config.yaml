@@ -1,0 +1,36 @@
+# Solver Configuration
+
+# HiGHS (Default - kostenlos, schnell für LP)
+highs:
+  time_limit: 300  # seconds
+  mip_gap: 0.01
+  threads: 1  # Threads pro Solve
+  presolve: "on"
+  parallel: "off"  # Bei Multiprocessing lieber off
+
+# Gurobi (Optional - akademische Lizenz)
+gurobi:
+  time_limit: 300
+  mipgap: 0.01
+  threads: 1
+  method: -1  # Auto
+  presolve: 1
+  logfile: "logs/gurobi.log"
+
+# GLPK (Fallback)
+glpk:
+  tmlim: 300  # Time limit in seconds
+  msg_lev: 1  # Message level (0=off, 1=error, 2=normal, 3=full)
+
+# CPLEX (Optional - kommerzielle Lizenz)
+cplex:
+  timelimit: 300
+  mip_tolerances_mipgap: 0.01
+  threads: 1
+
+# Solver-Auswahl-Logik
+fallback_order:
+  - "highs"    # Primär
+  - "gurobi"   # Wenn verfügbar
+  - "cplex"    # Wenn verfügbar
+  - "glpk"     # Letzter Fallback

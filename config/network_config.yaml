@@ -1,0 +1,40 @@
+# Network Topology Configuration
+# (Für spätere Erweiterung mit Netzwerk-Constraints)
+
+# Copper Plate Model (MVP)
+copper_plate:
+  n_buses: 1
+  bus_name: "DE"  # Deutschland gesamt
+
+# 16-Bus Model (Optional - für v1.5+)
+network_model:
+  enabled: false
+  n_buses: 16
+
+  # Regionale Busse (für zukünftige Erweiterung)
+  buses:
+    - name: "SH"  # Schleswig-Holstein
+      region: "North"
+      x: 10.0
+      y: 54.0
+
+    - name: "MV"  # Mecklenburg-Vorpommern
+      region: "North"
+      x: 12.5
+      y: 53.5
+
+    - name: "HB"  # Hamburg/Bremen
+      region: "North"
+      x: 9.5
+      y: 53.5
+
+    # Weitere Busse können hier ergänzt werden...
+
+  # Leitungen zwischen Bussen
+  lines:
+    # Beispiel für spätere Erweiterung
+    # - bus0: "SH"
+    #   bus1: "HB"
+    #   s_nom: 5000  # MW
+    #   length: 100  # km
+    #   x: 0.05  # Reaktanz
