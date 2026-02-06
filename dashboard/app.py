@@ -83,7 +83,7 @@ def run_simulation(start_date, end_date, scenario_config):
 
     with st.spinner("Optimiere Stromsystem (kann einige Minuten dauern)..."):
         status, condition = network.optimize(
-            solver_name='cbc',
+            solver_name='highs',
             pyomo=False
         )
 
@@ -130,7 +130,7 @@ def run_cannibalization_analysis(start_date, end_date, gen_capacities, demand_sc
             scenario_config=scenario_config
         )
 
-        status, condition = network.optimize(solver_name='cbc', pyomo=False)
+        status, condition = network.optimize(solver_name='highs', pyomo=False)
 
         if status != "ok":
             st.warning(f"Szenario {capacity_gwh} GWh fehlgeschlagen: {status}")
