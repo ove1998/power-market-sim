@@ -69,14 +69,13 @@ class NetworkBuilder:
         else:
             self.config = self._get_default_config()
 
-        # Zeitraum (mit UTC Timezone für Kompatibilität mit SMARD-Daten)
-        self.start_date = pd.Timestamp(start_date, tz='UTC')
-        self.end_date = pd.Timestamp(end_date, tz='UTC')
+        # Zeitraum (timezone-naive für PyPSA Kompatibilität)
+        self.start_date = pd.Timestamp(start_date)
+        self.end_date = pd.Timestamp(end_date)
         self.snapshots = pd.date_range(
             start=self.start_date,
             end=self.end_date,
-            freq='h',
-            tz='UTC'
+            freq='h'
         )
 
         self.logger.info(
@@ -98,6 +97,16 @@ class NetworkBuilder:
             'demand': DEFAULT_DEMAND,
             'interconnectors': INTERCONNECTOR_PARAMS
         }
+
+    def _make_timezone_naive(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Entfernt Timezone vom DataFrame Index für PyPSA Kompatibilität.
+
+        PyPSA benötigt timezone-naive timestamps.
+        """
+        if df.index.tz is not None:
+            df.index = df.index.tz_localize(None)
+        return df
 
     def build(self, scenario_config: Optional[Dict] = None) -> pypsa.Network:
         """
@@ -211,6 +220,7 @@ class NetworkBuilder:
         if demand_file.exists():
             try:
                 df = pd.read_parquet(demand_file)
+                df = self._make_timezone_naive(df)
 
                 # Sortiere Index und entferne Duplikate (Problem bei Zeitumstellung)
                 df = df.sort_index()
@@ -411,6 +421,7 @@ class NetworkBuilder:
         if profile_file.exists():
             try:
                 df = pd.read_parquet(profile_file)
+                df = self._make_timezone_naive(df)
 
                 # Sortiere Index und entferne Duplikate (Problem bei Zeitumstellung)
                 df = df.sort_index()
@@ -510,6 +521,7 @@ class NetworkBuilder:
         if weighted_prices_file.exists():
             try:
                 df_prices = pd.read_parquet(weighted_prices_file)
+                df_prices = self._make_timezone_naive(df_prices)
 
                 # Schneide auf unsere Zeitreihe zu
                 df_prices = df_prices.loc[self.snapshots]
