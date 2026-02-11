@@ -94,7 +94,11 @@ class NetworkBuilder:
             },
             'generators': DEFAULT_CAPACITIES_GW,
             'demand': DEFAULT_DEMAND,
-            'interconnectors': INTERCONNECTOR_PARAMS
+            'pumped_hydro': {
+                'power_gw': 9.4,
+                'capacity_gwh': 40.0,
+                'efficiency': 0.78,
+            },
         }
 
     def _make_timezone_naive(self, df: pd.DataFrame) -> pd.DataFrame:
