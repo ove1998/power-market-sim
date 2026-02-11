@@ -59,19 +59,13 @@ def load_default_config():
         return yaml.safe_load(f)
 
 
-def create_scenario_config(gen_capacities, storage_params, demand_scale,
-                           pumped_hydro_power=9.4, pumped_hydro_capacity=40.0):
+def create_scenario_config(gen_capacities, storage_params, demand_scale):
     """Erstellt Szenario-Config aus User-Inputs."""
     return {
         'generators': gen_capacities,
         'storage': {
             'capacity_gwh': storage_params['capacity_gwh'],
             'power_gw': storage_params['power_gw']
-        },
-        'pumped_hydro': {
-            'power_gw': pumped_hydro_power,
-            'capacity_gwh': pumped_hydro_capacity,
-            'efficiency': 0.78,
         },
         'demand_scale': demand_scale
     }
@@ -101,8 +95,7 @@ def run_simulation(start_date, end_date, scenario_config):
 
 
 def run_cannibalization_analysis(start_date, end_date, gen_capacities, demand_scale,
-                                  storage_steps, max_storage_gwh, storage_power_gw,
-                                  pumped_hydro_power=9.4, pumped_hydro_capacity=40.0):
+                                  storage_steps, max_storage_gwh, storage_power_gw):
     """
     Führt Kannibalisierungs-Analyse durch.
 
@@ -126,8 +119,7 @@ def run_cannibalization_analysis(start_date, end_date, gen_capacities, demand_sc
         scenario_config = create_scenario_config(
             gen_capacities,
             {'capacity_gwh': capacity_gwh, 'power_gw': storage_power_gw},
-            demand_scale,
-            pumped_hydro_power, pumped_hydro_capacity
+            demand_scale
         )
 
         # Führe Simulation aus
@@ -344,34 +336,23 @@ gen_capacities['hydro_run_of_river'] = st.sidebar.slider(
     help="Marginal Cost: 0 EUR/MWh"
 )
 
-# -------------------------------
-# Speicher
-# -------------------------------
-st.sidebar.header("🔋 Speicher")
-
-st.sidebar.subheader("Pumpspeicher")
-pumped_hydro_power = st.sidebar.slider(
-    "Pumpspeicher Leistung (GW)",
+gen_capacities['hydro_reservoir'] = st.sidebar.slider(
+    "Pumpspeicher (GW)",
     min_value=0.0,
     max_value=20.0,
-    value=default_config.get('pumped_hydro', {}).get('power_gw', 9.4),
+    value=default_config['generators']['hydro_reservoir']['capacity_gw'],
     step=0.5,
-    help="Lade-/Entladeleistung der Pumpspeicher"
-)
-pumped_hydro_capacity = st.sidebar.slider(
-    "Pumpspeicher Kapazität (GWh)",
-    min_value=0.0,
-    max_value=100.0,
-    value=default_config.get('pumped_hydro', {}).get('capacity_gwh', 40.0),
-    step=5.0,
-    help="Energiekapazität der Pumpspeicher"
+    help="Marginal Cost: 0 EUR/MWh"
 )
 
-st.sidebar.subheader("Batteriespeicher")
+# -------------------------------
+# Batteriespeicher
+# -------------------------------
+st.sidebar.header("🔋 Batteriespeicher")
 
 storage_params = {
     'capacity_gwh': st.sidebar.slider(
-        "Batterie Kapazität (GWh)",
+        "Kapazität (GWh)",
         min_value=0.0,
         max_value=100.0,
         value=10.0,
@@ -416,10 +397,7 @@ st.sidebar.markdown("---")
 
 if st.sidebar.button("🚀 Simulation starten", type="primary", use_container_width=True):
     # Erstelle Szenario-Config
-    scenario_config = create_scenario_config(
-        gen_capacities, storage_params, demand_scale,
-        pumped_hydro_power, pumped_hydro_capacity
-    )
+    scenario_config = create_scenario_config(gen_capacities, storage_params, demand_scale)
 
     # Führe Simulation aus
     network = run_simulation(start_date, end_date, scenario_config)
@@ -905,8 +883,7 @@ else:
             results_df = run_cannibalization_analysis(
                 start_date, end_date,
                 gen_capacities, demand_scale,
-                storage_step, max_storage, storage_power,
-                pumped_hydro_power, pumped_hydro_capacity
+                storage_step, max_storage, storage_power
             )
 
             # Speichere in Session State

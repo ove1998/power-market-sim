@@ -78,18 +78,21 @@ generators:
     capacity_gw: 5.4  # SMARD 2025: 5383 MW
     marginal_cost: 0.0
     p_nom_extendable: false
-    # hydro_reservoir wurde entfernt - jetzt als Pumpspeicher (StorageUnit) modelliert
 
-# Import/Export: Historische SMARD-Nettoimport/-export-Zeitreihe (exogen)
-cross_border:
-  source: "smard"  # Nutzt cross_border_flows_hourly.parquet
-  # Keine Kapazitätsgrenzen nötig - echte Daten sind bereits physikalisch begrenzt
+  hydro_reservoir:
+    capacity_gw: 9.4  # SMARD 2025: 9384 MW Pumpspeicher
+    marginal_cost: 0.0
+    p_nom_extendable: false
+    energy_capacity_gwh: 40.0  # Speicherkapazität
 
-# Pumpspeicher (als Storage modelliert, nicht als Generator!)
-pumped_hydro:
-  power_gw: 9.4       # SMARD 2025: 9384 MW
-  capacity_gwh: 40.0   # Geschätzte Speicherkapazität
-  efficiency: 0.78     # Round-trip Wirkungsgrad
+# Import/Export (vereinfacht)
+interconnectors:
+  import:
+    capacity_gw: 15.0
+    marginal_cost: 150.0  # EUR/MWh - aktiviert nur bei sehr hohen Preisen
+  export:
+    capacity_gw: 15.0
+    marginal_cost: -100.0  # EUR/MWh - NEGATIVE Grenzkosten! Aktiviert bei niedrigen/negativen Preisen
 
 # Demand Configuration
 demand:
