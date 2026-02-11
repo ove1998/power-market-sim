@@ -332,8 +332,7 @@ def get_renewable_share(
             'wind_onshore',
             'wind_offshore',
             'solar',
-            'hydro_run_of_river',
-            'hydro_reservoir'
+            'hydro_run_of_river'
         ]
 
     if len(network.generators) == 0:

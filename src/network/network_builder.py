@@ -18,7 +18,6 @@ from ..utils.constants import (
     STORAGE_TECHNOLOGIES,
     DEFAULT_CAPACITIES_GW,
     DEFAULT_DEMAND,
-    INTERCONNECTOR_PARAMS,
     UNITS,
     CO2_PRICE,
     calculate_marginal_cost_with_co2
@@ -135,9 +134,10 @@ class NetworkBuilder:
             self._add_buses()
             self._add_demand()
             self._add_generators()
-            self._add_interconnectors()
+            self._add_cross_border_flows()
+            self._add_pumped_hydro()
 
-            # Optional: Speicher (falls im Szenario definiert)
+            # Optional: Batterie-Speicher (falls im Szenario definiert)
             if scenario_config and 'storage' in scenario_config:
                 self._add_storage(scenario_config['storage'])
 
@@ -499,119 +499,94 @@ class NetworkBuilder:
 
         return pd.Series(profile.values, index=self.snapshots)
 
-    def _add_interconnectors(self):
+    def _add_cross_border_flows(self):
         """
-        Fügt virtuelle Import/Export-Kapazitäten hinzu.
+        Fügt historische Netto-Import/Export-Flüsse als exogene Last hinzu.
 
-        Import: Modelliert als Generator mit zeitvariablen marginalen Kosten
-                (basierend auf echten Nachbarland-Preisen)
-        Export: Modelliert als Last mit zeitvariablem Wert
-                (basierend auf echten Nachbarland-Preisen)
-
-        Verwendet gewichtete Import/Export-Preise aus SMARD-Daten.
+        Verwendet echte SMARD-Daten für grenzüberschreitende Stromflüsse.
+        Positiver net_export = Deutschland exportiert = zusätzliche Last.
+        Negativer net_export = Deutschland importiert = reduzierte Last.
         """
-        # Versuche echte Import/Export-Preise zu laden
         data_dir = Path(__file__).parents[2] / "data" / "processed"
-        weighted_prices_file = data_dir / "weighted_import_export_prices_hourly.parquet"
+        flows_file = data_dir / "cross_border_flows_hourly.parquet"
 
-        use_real_prices = False
-        import_prices = None
-        export_prices = None
+        if not flows_file.exists():
+            self.logger.warning(
+                "No cross-border flow data found. Skipping import/export."
+            )
+            return
 
-        if weighted_prices_file.exists():
-            try:
-                df_prices = pd.read_parquet(weighted_prices_file)
-                df_prices = self._make_timezone_naive(df_prices)
+        try:
+            df = pd.read_parquet(flows_file)
+            df = self._make_timezone_naive(df)
 
-                # Schneide auf unsere Zeitreihe zu
-                df_prices = df_prices.loc[self.snapshots]
+            # Sortiere und entferne Duplikate
+            df = df.sort_index()
+            df = df[~df.index.duplicated(keep='first')]
 
-                # Extrahiere Preise
-                import_prices = df_prices['import_price_eur_per_mwh']
-                export_prices = df_prices['export_price_eur_per_mwh']
-
-                # Fülle fehlende Werte mit Durchschnitt
-                import_prices = import_prices.fillna(import_prices.mean())
-                export_prices = export_prices.fillna(export_prices.mean())
-
-                use_real_prices = True
-                self.logger.info(
-                    f"Using real import/export prices from SMARD data:\n"
-                    f"  Import: {import_prices.mean():.1f} ± {import_prices.std():.1f} EUR/MWh\n"
-                    f"  Export: {export_prices.mean():.1f} ± {export_prices.std():.1f} EUR/MWh"
-                )
-            except Exception as e:
-                self.logger.warning(f"Could not load real import/export prices: {e}")
-                self.logger.warning("Falling back to fixed prices from config")
-
-        # Import
-        import_cap_gw = self.config['interconnectors']['import']['capacity_gw']
-
-        if import_cap_gw > 0:
-            if use_real_prices:
-                # Verwende zeitvariable echte Preise
-                marginal_cost = 0.0  # Basis-Kosten, wird überschrieben
-            else:
-                # Fallback auf feste Kosten
-                marginal_cost = self.config['interconnectors']['import']['marginal_cost']
-
-            self.network.add(
-                "Generator",
-                "import_DE",
-                bus="DE",
-                carrier="import",
-                p_nom=import_cap_gw * UNITS['gw_to_mw'],
-                marginal_cost=marginal_cost,
-                p_max_pu=1.0
+            # Reindex auf unsere Snapshots
+            net_export = df['net_export_mw'].reindex(
+                self.snapshots, method='nearest', tolerance='1h'
             )
 
-            # Setze zeitvariable marginale Kosten
-            if use_real_prices:
-                self.network.generators_t.marginal_cost['import_DE'] = import_prices.values
-                self.logger.info(
-                    f"Added import: {import_cap_gw} GW with time-varying prices "
-                    f"(avg: {import_prices.mean():.1f} EUR/MWh)"
-                )
-            else:
-                self.logger.info(
-                    f"Added import: {import_cap_gw} GW @ {marginal_cost} EUR/MWh (fixed)"
-                )
+            # Fülle fehlende Werte mit 0 (kein Im/Export)
+            net_export = net_export.fillna(0.0)
 
-        # Export (als Last mit positivem Nutzen)
-        export_cap_gw = self.config['interconnectors']['export']['capacity_gw']
-
-        if export_cap_gw > 0:
-            if use_real_prices:
-                # Export als Last, die Geld bringt
-                # Negative Last = Export
-                # Wir verwenden die Export-Preise als Wert für die exportierte Energie
-                marginal_cost = 0.0  # Basis-Kosten
-            else:
-                marginal_cost = self.config['interconnectors']['export']['marginal_cost']
-
-            # Export als Generator mit NEGATIVEN Grenzkosten
-            # (d.h. System verdient beim Export)
+            # Net Export als zusätzliche Last: positiv = Export = mehr Nachfrage
             self.network.add(
-                "Generator",
-                "export_DE",
+                "Load",
+                "cross_border_DE",
                 bus="DE",
-                carrier="export",
-                p_nom=export_cap_gw * UNITS['gw_to_mw'],
-                marginal_cost=marginal_cost,
-                p_max_pu=1.0
+                p_set=net_export
             )
 
-            # Setze zeitvariable marginale Kosten (negativ für Export)
-            if use_real_prices:
-                self.network.generators_t.marginal_cost['export_DE'] = -export_prices.values
-                self.logger.info(
-                    f"Added export: {export_cap_gw} GW with time-varying prices "
-                    f"(avg: -{export_prices.mean():.1f} EUR/MWh)"
-                )
-            else:
-                self.logger.info(
-                    f"Added export: {export_cap_gw} GW @ {marginal_cost} EUR/MWh (fixed, negative MC = export)"
-                )
+            avg_flow = net_export.mean()
+            flow_direction = "Netto-Export" if avg_flow > 0 else "Netto-Import"
+            self.logger.info(
+                f"Added cross-border flows from SMARD data: "
+                f"avg {flow_direction} {abs(avg_flow):.0f} MW, "
+                f"range [{net_export.min():.0f}, {net_export.max():.0f}] MW"
+            )
+
+        except Exception as e:
+            self.logger.warning(f"Could not load cross-border flows: {e}")
+            self.logger.warning("Running without import/export.")
+
+    def _add_pumped_hydro(self):
+        """
+        Fügt Pumpspeicher als StorageUnit hinzu.
+
+        Pumpspeicher sind Speicher, keine Generatoren:
+        Sie pumpen hoch wenn Strom billig ist und erzeugen wenn er teuer ist.
+        """
+        ph_config = self.config.get('pumped_hydro', {})
+        power_gw = ph_config.get('power_gw', 0)
+        capacity_gwh = ph_config.get('capacity_gwh', 0)
+        efficiency = ph_config.get('efficiency', 0.78)
+
+        if power_gw <= 0 or capacity_gwh <= 0:
+            return
+
+        power_mw = power_gw * UNITS['gw_to_mw']
+        capacity_mwh = capacity_gwh * UNITS['gw_to_mw']
+
+        self.network.add(
+            "StorageUnit",
+            "pumped_hydro_DE",
+            bus="DE",
+            carrier="pumped_hydro",
+            p_nom=power_mw,
+            max_hours=capacity_mwh / power_mw,
+            efficiency_store=np.sqrt(efficiency),
+            efficiency_dispatch=np.sqrt(efficiency),
+            marginal_cost=STORAGE_TECHNOLOGIES['pumped_hydro']['marginal_cost'],
+            cyclic_state_of_charge=True
+        )
+
+        self.logger.info(
+            f"Added pumped hydro storage: {capacity_gwh} GWh, {power_gw} GW "
+            f"(efficiency={efficiency:.0%})"
+        )
 
     def _add_storage(self, storage_config: Dict):
         """

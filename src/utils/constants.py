@@ -16,7 +16,6 @@ CO2_EMISSION_FACTORS = {
     'wind_offshore': 0.0,
     'solar': 0.0,
     'hydro_run_of_river': 0.0,
-    'hydro_reservoir': 0.0,
 }
 
 # CO2 Price Parameters
@@ -110,15 +109,6 @@ GENERATOR_TECHNOLOGIES = {
         'label': 'Wasserkraft (Laufwasser)',
         # Keine Ramping-Constraints - flussabhängig
     },
-    'hydro_reservoir': {
-        'marginal_cost': 0.0,
-        'fuel_cost': 0.0,
-        'co2_factor': CO2_EMISSION_FACTORS['hydro_reservoir'],
-        'color': '#2980B9',
-        'label': 'Wasserkraft (Speicher)',
-        'ramp_limit_up': 1.0,  # Pumpspeicher sehr flexibel
-        'ramp_limit_down': 1.0,
-    },
 }
 
 # Storage Technologies
@@ -128,6 +118,12 @@ STORAGE_TECHNOLOGIES = {
         'marginal_cost': 0.1,  # EUR/MWh (Betriebskosten)
         'color': '#9B59B6',
         'label': 'Batteriespeicher'
+    },
+    'pumped_hydro': {
+        'efficiency': 0.78,  # Round-trip efficiency Pumpspeicher
+        'marginal_cost': 1.0,  # EUR/MWh (Betriebskosten)
+        'color': '#2980B9',
+        'label': 'Pumpspeicher'
     },
 }
 
@@ -142,7 +138,6 @@ DEFAULT_CAPACITIES_GW = {
     'wind_offshore': 8.0,    # Reduziert von 10 auf echte SMARD Max-Kapazität
     'solar': 52.0,           # Reduziert von 70 auf echte SMARD Max-Kapazität
     'hydro_run_of_river': 4.0,
-    'hydro_reservoir': 6.0,
 }
 
 # Demand Parameters
